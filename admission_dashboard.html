@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TL-TH Wise Enrollment Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f7; color: #1a1a2e; }
+
+  .header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+    color: white; padding: 22px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.5px; }
+  .header .subtitle { font-size: 0.8rem; color: #a0b4d0; margin-top: 3px; }
+  .header .date-badge { background: rgba(255,255,255,0.12); border-radius: 20px; padding: 6px 16px; font-size: 0.78rem; color: #c8d8f0; }
+
+  .kpi-row { display: flex; gap: 18px; padding: 22px 28px 8px; flex-wrap: wrap; }
+  .kpi-card {
+    flex: 1; min-width: 160px; background: white; border-radius: 14px;
+    padding: 18px 22px; box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    border-left: 5px solid var(--color); position: relative; overflow: hidden;
+  }
+  .kpi-card::after {
+    content: var(--icon); position: absolute; right: 14px; top: 12px;
+    font-size: 2rem; opacity: 0.12;
+  }
+  .kpi-label { font-size: 0.73rem; text-transform: uppercase; letter-spacing: 1px; color: #888; font-weight: 600; }
+  .kpi-value { font-size: 2.1rem; font-weight: 800; color: var(--color); line-height: 1.1; margin-top: 4px; }
+  .kpi-sub { font-size: 0.72rem; color: #aaa; margin-top: 3px; }
+
+  .main { padding: 10px 28px 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .main { grid-template-columns: 1fr; } }
+
+  .card {
+    background: white; border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07); overflow: hidden;
+  }
+  .card.full { grid-column: 1 / -1; }
+  .card-header {
+    padding: 14px 20px; background: linear-gradient(90deg, #1a1a2e, #0f3460);
+    color: white; display: flex; align-items: center; gap: 10px;
+  }
+  .card-header h2 { font-size: 0.92rem; font-weight: 600; letter-spacing: 0.3px; }
+  .card-body { padding: 18px; }
+
+  /* TH Summary Table */
+  .th-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .th-table thead tr { background: #f0f4ff; }
+  .th-table th { padding: 9px 12px; text-align: center; font-weight: 700; color: #3a4a6b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #dde4f5; }
+  .th-table th:first-child { text-align: left; }
+  .th-table td { padding: 9px 12px; text-align: center; border-bottom: 1px solid #f0f3fa; }
+  .th-table td:first-child { text-align: left; font-weight: 700; }
+  .th-table tr:hover td { background: #f7f9ff; }
+  .th-table tr:last-child td { border-bottom: none; font-weight: 700; background: #edf2ff; }
+
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.76rem; font-weight: 700; }
+  .badge-enrolled { background: #e3f7ed; color: #1a7a45; }
+  .badge-done { background: #e8f0ff; color: #2251cc; }
+  .badge-rejected { background: #fff0ef; color: #c0392b; }
+  .badge-total { background: #f3eeff; color: #6c3fc7; }
+
+  .bar-mini { height: 6px; border-radius: 4px; background: #eee; margin-top: 5px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #4776e6, #8e54e9); }
+
+  /* TL Detail Table */
+  .tl-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .tl-table thead tr { background: #f0f4ff; position: sticky; top: 0; }
+  .tl-table th { padding: 8px 10px; font-weight: 700; color: #3a4a6b; font-size: 0.73rem; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 2px solid #dde4f5; }
+  .tl-table th:first-child, .tl-table td:first-child { text-align: left; padding-left: 14px; }
+  .tl-table th:not(:first-child), .tl-table td:not(:first-child) { text-align: center; }
+  .tl-table td { padding: 8px 10px; border-bottom: 1px solid #f0f3fa; }
+  .tl-table tr:hover td { background: #f7f9ff; }
+  .tl-table .th-group-row td { background: linear-gradient(90deg, #1a1a2e, #0f3460); color: white; font-weight: 700; font-size: 0.78rem; padding: 7px 14px; letter-spacing: 0.5px; }
+  .tl-table .th-group-row td .th-tag { background: rgba(255,255,255,0.2); border-radius: 4px; padding: 1px 8px; font-size: 0.72rem; margin-right: 6px; }
+  .table-scroll { max-height: 420px; overflow-y: auto; }
+  .table-scroll::-webkit-scrollbar { width: 5px; }
+  .table-scroll::-webkit-scrollbar-thumb { background: #bbb; border-radius: 3px; }
+
+  .chart-wrap { position: relative; height: 260px; }
+
+  .filter-row { padding: 10px 20px; border-bottom: 1px solid #eee; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .filter-row label { font-size: 0.75rem; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .filter-row select { border: 1px solid #dde; border-radius: 8px; padding: 5px 12px; font-size: 0.8rem; background: #f8faff; color: #333; cursor: pointer; }
+
+  .pct-bar { display: flex; height: 22px; border-radius: 6px; overflow: hidden; width: 100%; }
+  .pct-seg { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; color: white; transition: all 0.4s; min-width: 2px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header h1" style="font-size:1.45rem;font-weight:800;letter-spacing:0.5px;">📊 TL–TH WISE ENROLLMENT DASHBOARD</div>
+    <div class="subtitle">Admission Enrolled • Admission Done • Admission Rejected</div>
+  </div>
+  <div class="date-badge">📅 As of 24 Mar 2026</div>
+</div>
+
+<!-- KPI Cards -->
+<div class="kpi-row">
+  <div class="kpi-card" style="--color:#1a7a45;--icon:'✅'">
+    <div class="kpi-label">Total Enrolled</div>
+    <div class="kpi-value">3,589</div>
+    <div class="kpi-sub">86.2% of all records</div>
+  </div>
+  <div class="kpi-card" style="--color:#2251cc;--icon:'🎓'">
+    <div class="kpi-label">Admission Done</div>
+    <div class="kpi-value">352</div>
+    <div class="kpi-sub">8.5% of all records</div>
+  </div>
+  <div class="kpi-card" style="--color:#c0392b;--icon:'❌'">
+    <div class="kpi-label">Admission Rejected</div>
+    <div class="kpi-value">222</div>
+    <div class="kpi-sub">5.3% of all records</div>
+  </div>
+  <div class="kpi-card" style="--color:#6c3fc7;--icon:'📋'">
+    <div class="kpi-label">Total Records</div>
+    <div class="kpi-value">4,163</div>
+    <div class="kpi-sub">11 TH Groups · 59 TLs</div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- TH Summary Table -->
+  <div class="card">
+    <div class="card-header"><h2>🏢 TH-Wise Summary</h2></div>
+    <div class="card-body" style="padding:0">
+      <table class="th-table">
+        <thead>
+          <tr>
+            <th>TH</th>
+            <th>Enrolled</th>
+            <th>Adm. Done</th>
+            <th>Rejected</th>
+            <th>Total</th>
+            <th>Split</th>
+          </tr>
+        </thead>
+        <tbody id="thTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Bar Chart -->
+  <div class="card">
+    <div class="card-header"><h2>📊 TH-Wise Count Chart</h2></div>
+    <div class="card-body">
+      <div class="chart-wrap">
+        <canvas id="thBarChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Donut Charts Row -->
+  <div class="card">
+    <div class="card-header"><h2>🥧 Stage Distribution</h2></div>
+    <div class="card-body">
+      <div class="chart-wrap">
+        <canvas id="stageDonut"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rejection Rate -->
+  <div class="card">
+    <div class="card-header"><h2>⚠️ Rejection Rate by TH</h2></div>
+    <div class="card-body">
+      <div class="chart-wrap">
+        <canvas id="rejectionChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- TL Detail Table - Full Width -->
+  <div class="card full">
+    <div class="card-header"><h2>👤 TL-Wise Detail (Grouped by TH)</h2></div>
+    <div class="filter-row">
+      <label>Filter by TH:</label>
+      <select id="thFilter" onchange="renderTLTable()">
+        <option value="ALL">All TH Groups</option>
+      </select>
+    </div>
+    <div class="table-scroll">
+      <table class="tl-table">
+        <thead>
+          <tr>
+            <th>TL Name</th>
+            <th>Enrolled</th>
+            <th>Adm. Done</th>
+            <th>Rejected</th>
+            <th>Total</th>
+            <th>Rejection %</th>
+          </tr>
+        </thead>
+        <tbody id="tlTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const thData = [
+  {"TH":"AD","Admission Done":51,"Admission Rejected":36,"Enrolled":618,"Total":705},
+  {"TH":"AK","Admission Done":47,"Admission Rejected":27,"Enrolled":482,"Total":556},
+  {"TH":"AKK","Admission Done":7,"Admission Rejected":1,"Enrolled":26,"Total":34},
+  {"TH":"AP","Admission Done":116,"Admission Rejected":54,"Enrolled":839,"Total":1009},
+  {"TH":"AS","Admission Done":41,"Admission Rejected":33,"Enrolled":548,"Total":622},
+  {"TH":"KB","Admission Done":0,"Admission Rejected":0,"Enrolled":1,"Total":1},
+  {"TH":"MN","Admission Done":54,"Admission Rejected":46,"Enrolled":602,"Total":702},
+  {"TH":"PS","Admission Done":24,"Admission Rejected":1,"Enrolled":48,"Total":73},
+  {"TH":"RM","Admission Done":1,"Admission Rejected":3,"Enrolled":39,"Total":43},
+  {"TH":"RS","Admission Done":0,"Admission Rejected":0,"Enrolled":9,"Total":9},
+  {"TH":"RY","Admission Done":11,"Admission Rejected":21,"Enrolled":377,"Total":409}
+];
+
+const tlData = [
+  {"TH":"AD","TL":"Manish Kumar Pandey","Admission Done":15,"Admission Rejected":11,"Enrolled":142,"Total":168},
+  {"TH":"AD","TL":"Pooja Singh Koli","Admission Done":0,"Admission Rejected":4,"Enrolled":18,"Total":22},
+  {"TH":"AD","TL":"Radhvendra Singh","Admission Done":3,"Admission Rejected":2,"Enrolled":29,"Total":34},
+  {"TH":"AD","TL":"Rohit Kumar","Admission Done":6,"Admission Rejected":6,"Enrolled":102,"Total":114},
+  {"TH":"AD","TL":"Sachin Behera","Admission Done":0,"Admission Rejected":0,"Enrolled":28,"Total":28},
+  {"TH":"AD","TL":"Surchit Gupta","Admission Done":16,"Admission Rejected":7,"Enrolled":160,"Total":183},
+  {"TH":"AD","TL":"Vishal Kumar","Admission Done":3,"Admission Rejected":4,"Enrolled":128,"Total":135},
+  {"TH":"AD","TL":"Vivek Kumar","Admission Done":8,"Admission Rejected":2,"Enrolled":11,"Total":21},
+  {"TH":"AK","TL":"Anuj Kumar","Admission Done":6,"Admission Rejected":6,"Enrolled":66,"Total":78},
+  {"TH":"AK","TL":"Apurva Singh","Admission Done":0,"Admission Rejected":1,"Enrolled":8,"Total":9},
+  {"TH":"AK","TL":"Dheeraj Singh","Admission Done":9,"Admission Rejected":5,"Enrolled":129,"Total":143},
+  {"TH":"AK","TL":"Madiha Hamid","Admission Done":9,"Admission Rejected":2,"Enrolled":87,"Total":98},
+  {"TH":"AK","TL":"Reena Chauhan","Admission Done":12,"Admission Rejected":10,"Enrolled":112,"Total":134},
+  {"TH":"AK","TL":"Sushant Yadav","Admission Done":11,"Admission Rejected":3,"Enrolled":80,"Total":94},
+  {"TH":"AKK","TL":"GAURAV BERORIYA","Admission Done":3,"Admission Rejected":0,"Enrolled":6,"Total":9},
+  {"TH":"AKK","TL":"KOSHIKA AGARWAL","Admission Done":0,"Admission Rejected":0,"Enrolled":1,"Total":1},
+  {"TH":"AKK","TL":"SHAILLY MISHRA","Admission Done":1,"Admission Rejected":0,"Enrolled":2,"Total":3},
+  {"TH":"AKK","TL":"YOGENDRA NAYAK","Admission Done":1,"Admission Rejected":0,"Enrolled":5,"Total":6},
+  {"TH":"AKK","TL":"YUSUF ANSARI","Admission Done":2,"Admission Rejected":1,"Enrolled":12,"Total":15},
+  {"TH":"AP","TL":"CHAHAT SINGH","Admission Done":17,"Admission Rejected":7,"Enrolled":197,"Total":221},
+  {"TH":"AP","TL":"HEMANT KUMAR","Admission Done":8,"Admission Rejected":2,"Enrolled":59,"Total":69},
+  {"TH":"AP","TL":"HIMANSHU RAJ","Admission Done":2,"Admission Rejected":3,"Enrolled":31,"Total":36},
+  {"TH":"AP","TL":"HURRIYA MOIN","Admission Done":24,"Admission Rejected":5,"Enrolled":134,"Total":163},
+  {"TH":"AP","TL":"KHUSHBOO","Admission Done":11,"Admission Rejected":16,"Enrolled":114,"Total":141},
+  {"TH":"AP","TL":"MOHIT KUMAR","Admission Done":1,"Admission Rejected":0,"Enrolled":16,"Total":17},
+  {"TH":"AP","TL":"PRITI RAJPUT","Admission Done":31,"Admission Rejected":16,"Enrolled":208,"Total":255},
+  {"TH":"AP","TL":"Partner Ashish","Admission Done":5,"Admission Rejected":0,"Enrolled":6,"Total":11},
+  {"TH":"AP","TL":"SHUBHRANSU MOHANTY","Admission Done":17,"Admission Rejected":5,"Enrolled":74,"Total":96},
+  {"TH":"AS","TL":"Abhishek Verma","Admission Done":12,"Admission Rejected":14,"Enrolled":124,"Total":150},
+  {"TH":"AS","TL":"Amrita Rao","Admission Done":6,"Admission Rejected":10,"Enrolled":86,"Total":102},
+  {"TH":"AS","TL":"Gautam Kumar","Admission Done":5,"Admission Rejected":0,"Enrolled":129,"Total":134},
+  {"TH":"AS","TL":"Shani Kumar","Admission Done":5,"Admission Rejected":6,"Enrolled":71,"Total":82},
+  {"TH":"AS","TL":"Somya Kumari","Admission Done":7,"Admission Rejected":0,"Enrolled":14,"Total":21},
+  {"TH":"AS","TL":"Tabish Raza","Admission Done":6,"Admission Rejected":3,"Enrolled":124,"Total":133},
+  {"TH":"KB","TL":"Rohit Pandey","Admission Done":0,"Admission Rejected":0,"Enrolled":1,"Total":1},
+  {"TH":"MN","TL":"Anu Kumari","Admission Done":10,"Admission Rejected":9,"Enrolled":138,"Total":157},
+  {"TH":"MN","TL":"Ashish Rathoud","Admission Done":8,"Admission Rejected":1,"Enrolled":113,"Total":122},
+  {"TH":"MN","TL":"Gautam Kumar Jha","Admission Done":16,"Admission Rejected":16,"Enrolled":146,"Total":178},
+  {"TH":"MN","TL":"Mohammad Anees","Admission Done":8,"Admission Rejected":7,"Enrolled":94,"Total":109},
+  {"TH":"MN","TL":"Prateek Goel","Admission Done":12,"Admission Rejected":13,"Enrolled":111,"Total":136},
+  {"TH":"PS","TL":"Gulshan Singh","Admission Done":1,"Admission Rejected":0,"Enrolled":7,"Total":8},
+  {"TH":"PS","TL":"Mayank Rawat","Admission Done":6,"Admission Rejected":1,"Enrolled":12,"Total":19},
+  {"TH":"PS","TL":"Mayank Vedi","Admission Done":10,"Admission Rejected":0,"Enrolled":8,"Total":18},
+  {"TH":"PS","TL":"Sachin Behera","Admission Done":3,"Admission Rejected":0,"Enrolled":10,"Total":13},
+  {"TH":"PS","TL":"Sakshi Tiwari","Admission Done":4,"Admission Rejected":0,"Enrolled":11,"Total":15},
+  {"TH":"RM","TL":"Akshit Mittal","Admission Done":0,"Admission Rejected":1,"Enrolled":7,"Total":8},
+  {"TH":"RM","TL":"Manish Thapliyal","Admission Done":0,"Admission Rejected":1,"Enrolled":11,"Total":12},
+  {"TH":"RM","TL":"Namrata Yadav","Admission Done":1,"Admission Rejected":1,"Enrolled":3,"Total":5},
+  {"TH":"RM","TL":"Rohit Mittal","Admission Done":0,"Admission Rejected":0,"Enrolled":3,"Total":3},
+  {"TH":"RM","TL":"Smriti Grover","Admission Done":0,"Admission Rejected":0,"Enrolled":13,"Total":13},
+  {"TH":"RM","TL":"Udit Mohan Singhal","Admission Done":0,"Admission Rejected":0,"Enrolled":2,"Total":2},
+  {"TH":"RS","TL":"Shani Kumar","Admission Done":0,"Admission Rejected":0,"Enrolled":9,"Total":9},
+  {"TH":"RY","TL":"Abhishek Kumar Singh","Admission Done":0,"Admission Rejected":1,"Enrolled":29,"Total":30},
+  {"TH":"RY","TL":"Gulshan Singh","Admission Done":3,"Admission Rejected":1,"Enrolled":41,"Total":45},
+  {"TH":"RY","TL":"Mayank Rawat","Admission Done":2,"Admission Rejected":2,"Enrolled":29,"Total":33},
+  {"TH":"RY","TL":"Mayank Vedi","Admission Done":1,"Admission Rejected":4,"Enrolled":97,"Total":102},
+  {"TH":"RY","TL":"Radhvendra Singh","Admission Done":0,"Admission Rejected":1,"Enrolled":43,"Total":44},
+  {"TH":"RY","TL":"Sachin Behera","Admission Done":0,"Admission Rejected":1,"Enrolled":34,"Total":35},
+  {"TH":"RY","TL":"Sakshi Rajpoot","Admission Done":2,"Admission Rejected":6,"Enrolled":25,"Total":33},
+  {"TH":"RY","TL":"Sakshi Tiwari","Admission Done":3,"Admission Rejected":5,"Enrolled":79,"Total":87}
+];
+
+const maxTotal = Math.max(...thData.map(d=>d.Total));
+
+// TH Table
+const tbody = document.getElementById('thTableBody');
+let grandE=0,grandD=0,grandR=0,grandT=0;
+thData.forEach(d=>{
+  grandE+=d.Enrolled; grandD+=d['Admission Done']; grandR+=d['Admission Rejected']; grandT+=d.Total;
+  const ep=Math.round(d.Enrolled/d.Total*100)||0;
+  const dp=Math.round(d['Admission Done']/d.Total*100)||0;
+  const rp=Math.round(d['Admission Rejected']/d.Total*100)||0;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><strong>${d.TH}</strong></td>
+    <td><span class="badge badge-enrolled">${d.Enrolled.toLocaleString()}</span></td>
+    <td><span class="badge badge-done">${d['Admission Done']}</span></td>
+    <td><span class="badge badge-rejected">${d['Admission Rejected']}</span></td>
+    <td><span class="badge badge-total">${d.Total.toLocaleString()}</span></td>
+    <td style="min-width:90px;">
+      <div class="pct-bar">
+        <div class="pct-seg" style="width:${ep}%;background:#27ae60" title="Enrolled ${ep}%">${ep>12?ep+'%':''}</div>
+        <div class="pct-seg" style="width:${dp}%;background:#2980b9" title="Done ${dp}%">${dp>8?dp+'%':''}</div>
+        <div class="pct-seg" style="width:${rp}%;background:#e74c3c" title="Rejected ${rp}%">${rp>8?rp+'%':''}</div>
+      </div>
+    </td>
+  `;
+  tbody.appendChild(tr);
+});
+// Grand Total row
+const gtr = document.createElement('tr');
+gtr.innerHTML = `
+  <td>GRAND TOTAL</td>
+  <td><span class="badge badge-enrolled">${grandE.toLocaleString()}</span></td>
+  <td><span class="badge badge-done">${grandD}</span></td>
+  <td><span class="badge badge-rejected">${grandR}</span></td>
+  <td><span class="badge badge-total">${grandT.toLocaleString()}</span></td>
+  <td>
+    <div class="pct-bar">
+      <div class="pct-seg" style="width:${Math.round(grandE/grandT*100)}%;background:#27ae60">${Math.round(grandE/grandT*100)}%</div>
+      <div class="pct-seg" style="width:${Math.round(grandD/grandT*100)}%;background:#2980b9">${Math.round(grandD/grandT*100)}%</div>
+      <div class="pct-seg" style="width:${Math.round(grandR/grandT*100)}%;background:#e74c3c">${Math.round(grandR/grandT*100)}%</div>
+    </div>
+  </td>
+`;
+tbody.appendChild(gtr);
+
+// TH Filter
+const thFilter = document.getElementById('thFilter');
+[...new Set(tlData.map(d=>d.TH))].forEach(th=>{
+  const opt = document.createElement('option');
+  opt.value = th; opt.textContent = `TH: ${th}`;
+  thFilter.appendChild(opt);
+});
+
+// TL Table
+function renderTLTable() {
+  const filter = document.getElementById('thFilter').value;
+  const filtered = filter==='ALL' ? tlData : tlData.filter(d=>d.TH===filter);
+  const tbody = document.getElementById('tlTableBody');
+  tbody.innerHTML = '';
+  let lastTH = null;
+  filtered.forEach(d => {
+    if (d.TH !== lastTH) {
+      const groupRow = document.createElement('tr');
+      groupRow.className = 'th-group-row';
+      const thTotal = thData.find(t=>t.TH===d.TH);
+      groupRow.innerHTML = `<td colspan="6"><span class="th-tag">TH</span>${d.TH} &nbsp;|&nbsp; Total: ${thTotal?thTotal.Total:''} &nbsp;|&nbsp; Enrolled: ${thTotal?thTotal.Enrolled:''} &nbsp;|&nbsp; Done: ${thTotal?thTotal['Admission Done']:''} &nbsp;|&nbsp; Rejected: ${thTotal?thTotal['Admission Rejected']:''}</td>`;
+      tbody.appendChild(groupRow);
+      lastTH = d.TH;
+    }
+    const rejPct = d.Total > 0 ? ((d['Admission Rejected']/d.Total)*100).toFixed(1) : '0.0';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${d.TL}</td>
+      <td><span class="badge badge-enrolled">${d.Enrolled}</span></td>
+      <td><span class="badge badge-done">${d['Admission Done']}</span></td>
+      <td><span class="badge badge-rejected">${d['Admission Rejected']}</span></td>
+      <td><span class="badge badge-total">${d.Total}</span></td>
+      <td style="color:${rejPct>15?'#c0392b':rejPct>8?'#e67e22':'#27ae60'};font-weight:700">${rejPct}%</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+renderTLTable();
+
+// Bar Chart
+new Chart(document.getElementById('thBarChart'), {
+  type: 'bar',
+  data: {
+    labels: thData.map(d=>d.TH),
+    datasets: [
+      { label: 'Enrolled', data: thData.map(d=>d.Enrolled), backgroundColor: '#27ae60', borderRadius: 4 },
+      { label: 'Adm. Done', data: thData.map(d=>d['Admission Done']), backgroundColor: '#2980b9', borderRadius: 4 },
+      { label: 'Rejected', data: thData.map(d=>d['Admission Rejected']), backgroundColor: '#e74c3c', borderRadius: 4 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } },
+    scales: {
+      x: { stacked: false, grid: { display: false } },
+      y: { beginAtZero: true, grid: { color: '#f0f3fa' } }
+    }
+  }
+});
+
+// Stage Donut
+new Chart(document.getElementById('stageDonut'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Enrolled', 'Admission Done', 'Admission Rejected'],
+    datasets: [{
+      data: [3589, 352, 222],
+      backgroundColor: ['#27ae60','#2980b9','#e74c3c'],
+      borderWidth: 3, borderColor: '#fff'
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    cutout: '65%',
+    plugins: {
+      legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 14 } },
+      tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.raw.toLocaleString()} (${((ctx.raw/4163)*100).toFixed(1)}%)` } }
+    }
+  }
+});
+
+// Rejection Rate Horizontal Bar
+new Chart(document.getElementById('rejectionChart'), {
+  type: 'bar',
+  data: {
+    labels: thData.map(d=>d.TH),
+    datasets: [{
+      label: 'Rejection Rate (%)',
+      data: thData.map(d => d.Total > 0 ? +((d['Admission Rejected']/d.Total)*100).toFixed(1) : 0),
+      backgroundColor: thData.map(d => {
+        const r = (d['Admission Rejected']/d.Total)*100;
+        return r > 10 ? '#e74c3c' : r > 5 ? '#e67e22' : '#27ae60';
+      }),
+      borderRadius: 5
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => `${ctx.raw}% rejected` } }
+    },
+    scales: {
+      x: { beginAtZero: true, max: 20, grid: { color: '#f0f3fa' }, ticks: { callback: v => v+'%' } },
+      y: { grid: { display: false } }
+    }
+  }
+});
+</script>
+</body>
+</html>
